@@ -62,7 +62,7 @@ jobs:
 
       - uses: kt-actions/npm-run-script@v1
         with:
-          matrix-node-version: ${{ vars.MATRIX_NODE_VERSION }}
+          matrix-node-version: ${{ inputs.matrix-node-version }}
           matrix-node-version-earliest: true
           install-script: ${{ inputs.install-script }}
           run-script: ${{ inputs.build-script }}
