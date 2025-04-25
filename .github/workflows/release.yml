@@ -33,7 +33,6 @@ on:
         required: false
         description: 'NPM token used to publish the package'
 
-permissions: {}
 jobs:
   # echo:
   #   runs-on: ubuntu-latest
