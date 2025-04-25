@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      matrix-node-version:
+        description: 'Node.js versions to use, json array like in matrix.node-version'
+        type: string
+      install-script:
+        description: 'Install script to run'
+        type: string
+        default: npm ci
+      build-script:
+        description: 'Script to run to build the package'
+        type: string
+        default: npm run build:release
+      publish-script:
+        description: 'Script to run to publish the package'
+        type: string
+        default: npm run changeset:publish
+      version-script:
+        description: 'Script to run to version the package'
+        type: string
+        default: npm run changeset:version
+    secrets:
+      WORKFLOW_APP_ID:
+        required: true
+        description: 'GitHub App ID used to create a token and submit changes'
+      WORKFLOW_APP_PRIVATE_KEY:
+        required: true
+        description: 'GitHub App private key used to create a token and submit changes'
+      NPM_TOKEN:
+        required: false
+        description: 'NPM token used to publish the package'
+
+permissions: {}
+jobs:
+  # echo:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - run: ${{ tojson(github) }}
+  #       shell: cat {0}
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - id: app-token
+        uses: kt-actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+          configure-git: false
+
+      - uses: actions/checkout@v4
+        with:
+          # This makes Actions fetch all Git history so that Changesets can generate changelogs with the correct commits
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: kt-actions/npm-run-script@v1
+        with:
+          matrix-node-version: ${{ vars.MATRIX_NODE_VERSION }}
+          matrix-node-version-earliest: true
+          install-script: ${{ inputs.install-script }}
+          run-script: ${{ inputs.build-script }}
+
+      - id: changesets
+        uses: changesets/action@v1
+        with:
+          #   # This expects you to have a script called release which does a build for your packages and calls changeset publish
+          publish: ${{ inputs.publish-script }}
+          version: ${{ inputs.version-script }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          NPM_CONFIG_PROVENANCE: true
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true
