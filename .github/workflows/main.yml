@@ -79,8 +79,12 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         continue-on-error: true
 
+      - id: do-update-package-lock
+        if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+        run: echo "result=true" >> "$GITHUB_OUTPUT"
+
       # Get the branch of the pull request from its number
-      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+      - if: ${{ steps.do-update-package-lock.outputs.result == 'true' }}
         id: pr-branch
         run: |
           pr_number=${{ steps.changesets.outputs.pullRequestNumber }}
@@ -90,14 +94,14 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       # Checkout the branch of the pull request
-      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+      - if: ${{ steps.do-update-package-lock.outputs.result == 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr-branch.outputs.branch }}
           token: ${{ steps.app-token.outputs.token }}
 
       # Install dependencies again to make sure they are up to date
-      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+      - if: ${{ steps.do-update-package-lock.outputs.result == 'true' }}
         uses: kt-actions/npm-run-script@v1
         with:
           matrix-node-version: ${{ inputs.matrix-node-version }}
@@ -107,7 +111,7 @@ jobs:
           run-script: npm install
 
       # Commit and push the changes to the pull request branch
-      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+      - if: ${{ steps.do-update-package-lock.outputs.result == 'true' }}
         run: |
           # Check if there are any changes to commit in 'package-lock.json' file
           if [ -z "$(git status --porcelain)" ]; then
