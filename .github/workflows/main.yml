@@ -47,9 +47,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      publish: ${{ steps.changesets.outputs.publish }}
-      hasChangesets: ${{ steps.changesets.outputs.hasChangesets }}
-      pullRequestNumber: ${{ steps.changesets.outputs.pullRequestNumber }}
+      pr-branch: ${{ steps.pr-branch.outputs.branch }}
     steps:
       - id: app-token
         uses: kt-actions/create-github-app-token@v1
@@ -83,10 +81,21 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         continue-on-error: true
 
+      # Get the branch of the pull request from its number
+      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+        id: pr-branch
+        run: |
+          pr_number=${{ needs.release.outputs.pullRequestNumber }}
+          pr_branch=$(gh pr view $pr_number --json headRefName --jq '.headRefName')
+          echo "branch=$pr_branch" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
   update-package-lock:
     runs-on: ubuntu-latest
     needs: release
-    if: ${{ needs.release.outputs.publish != 'true' && needs.release.outputs.hasChangesets == 'true' && needs.release.outputs.pullRequestNumber != '' }}
+    if: ${{ needs.release.outputs.pr-branch != '' }}
     steps:
       - id: app-token
         uses: kt-actions/create-github-app-token@v1
@@ -98,18 +107,8 @@ jobs:
       # Checkout the branch of the pull request
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.pr-branch.outputs.branch }}
+          ref: ${{ needs.release.outputs.pr-branch }}
           token: ${{ steps.app-token.outputs.token }}
-
-      # Get the branch of the pull request from its number
-      - id: pr-branch
-        run: |
-          pr_number=${{ needs.release.outputs.pullRequestNumber }}
-          pr_branch=$(gh pr view $pr_number --json headRefName --jq '.headRefName')
-          echo "branch=$pr_branch" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       # Print version from package.json
       - run: |
