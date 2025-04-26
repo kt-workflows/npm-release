@@ -78,3 +78,44 @@ jobs:
           NPM_CONFIG_PROVENANCE: true
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         continue-on-error: true
+
+      # Get the branch of the pull request from its number
+      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+        id: pr-branch
+        run: |
+          pr_number=${{ steps.changesets.outputs.pullRequestNumber }}
+          pr_branch=$(gh pr view $pr_number --json headRefName --jq '.headRefName')
+          echo "branch=$pr_branch" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      # Checkout the branch of the pull request
+      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr-branch.outputs.branch }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      # Install dependencies again to make sure they are up to date
+      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+        uses: kt-actions/npm-run-script@v1
+        with:
+          matrix-node-version: ${{ inputs.matrix-node-version }}
+          matrix-node-version-earliest: true
+          install-script: ${{ inputs.install-script }}
+          # Run npm install beacause changesets does not update versions package-lock.json
+          run-script: npm install
+
+      # Commit and push the changes to the pull request branch
+      - if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
+        run: |
+          # Check if there are any changes to commit in 'package-lock.json' file
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit"
+          else
+            git add package-lock.json
+            git commit -m "Update version in package-lock.json"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
