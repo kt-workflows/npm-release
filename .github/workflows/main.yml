@@ -79,6 +79,9 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         continue-on-error: true
 
+      - run: ${{ tojson(steps.changesets.outputs) }}
+        shell: cat {0}
+
       - id: do-update-package-lock
         if: ${{ steps.changesets.outputs.publish != 'true' && steps.changesets.outputs.hasChangesets == 'true' && steps.changesets.outputs.pullRequestNumber != '' }}
         run: echo "result=true" >> "$GITHUB_OUTPUT"
