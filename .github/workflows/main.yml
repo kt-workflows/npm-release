@@ -111,6 +111,11 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
+      # Print version from package.json
+      - run: |
+          echo "Version (package.json): $(jq -r .version package.json)"
+          echo "Version (package-lock.json): $(jq -r .version package-lock.json)"
+
       # Install dependencies again to make sure they are up to date
       - uses: kt-actions/npm-run-script@v1
         with:
